@@ -32,7 +32,7 @@ dependencies {
   compile "org.jetbrains.kotlin:kotlin-runtime:$kotlin_version"
 }
 
-mainClassName = 'astasiak.kremenaros.ServerKt'
+mainClassName = 'astasiak.kremenaros.SampleGameKt'
 
 shadowJar {
   classifier = 'fat'

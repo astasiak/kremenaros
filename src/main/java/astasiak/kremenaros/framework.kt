@@ -3,17 +3,24 @@ package astasiak.kremenaros
 import io.vertx.core.Vertx
 import io.vertx.core.net.NetSocket
 
-fun main(args: Array<String>) {
+fun runGame(game: Game) {
     val accountsService = AccountsService()
     Vertx.vertx().createNetServer()
             .connectHandler { connection ->
-                MainHandler(connection, accountsService)
+                MainHandler(game, connection, accountsService)
             }
             .listen(8866)
     println("Listening!")
 }
 
-class MainHandler(val connection: NetSocket, val accountsService: AccountsService) {
+class MainHandler(
+        val game: Game,
+        val connection: NetSocket,
+        val accountsService: AccountsService) {
+
+    enum class ConnectionState {
+        LOGIN, PASS, AUTHENTICATED
+    }
 
     var state: ConnectionState = ConnectionState.LOGIN
     var login: String? = null
@@ -51,8 +58,7 @@ class MainHandler(val connection: NetSocket, val accountsService: AccountsServic
         send("PASS")
     }
     private fun handlePassword(password: String) {
-        val login = this.login
-        if (login != null && accountsService.authenticate(login, password)) {
+        if (accountsService.authenticate(takeLogin(), password)) {
             this.state = ConnectionState.AUTHENTICATED
             send("OK")
         } else {
@@ -60,16 +66,25 @@ class MainHandler(val connection: NetSocket, val accountsService: AccountsServic
         }
     }
     private fun handleCommand(command: String) {
-        send("Thank you for your command \"$command\"")
+        val output = game.handleCommand(takeLogin(), command)
+        send("OK")
+        for (line in output) {
+            send(line)
+        }
     }
     private fun send(message: String) {
         connection.write(message + "\n")
     }
-}
-enum class ConnectionState {
-    LOGIN, PASS, AUTHENTICATED
+    private fun takeLogin(): String {
+        return login ?: throw InternalException()
+    }
 }
 
 abstract class ApplicationException(val code: Int, val desc: String, val terminal: Boolean = false)
     : RuntimeException()
-class LoginException :ApplicationException(501, "Login failed", true)
+class LoginException : ApplicationException(401, "Login failed", true)
+class InternalException : ApplicationException(501, "Internal exception", true)
+
+interface Game {
+    fun handleCommand(team: String, command: String): List<String>
+}
